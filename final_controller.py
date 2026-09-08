@@ -1,4 +1,3 @@
-"""final_controller controller."""
 from controller import Robot, DistanceSensor, Motor
 
 # time in [ms] of a simulation step
@@ -52,19 +51,19 @@ while robot.step(TIME_STEP) != -1:
     #print(psValues) # printing values to see how close wall is
     print("ps5:", psValues[5], "ps6:", psValues[6]) #print the sensors closest to left wall 
     print("ps0:", psValues[0], "ps7:", psValues[7]) #print sensors that detect in the front
-    print("ls0:", lsValues[0], "ps:", psValues[7])
-    print("ls2:", lsValues[0], "ps7:", psValues[7])
-    print("ps0:", psValues[0], "ps7:", psValues[7])
-    print("ps0:", psValues[0], "ps7:", psValues[7])
+   
+
 
 
     lsValues = []
     for i in range(8):
         lsValues.append(ls[i].getValue())
         
+    
+        
     # state machine 
     if currentState == "FOLLOW_LEFT" : 
-        if psValues[0] = 130 #or psValues[7] > 130: 
+        if psValues[0] > 130 or psValues[7] > 130: 
             #if there is an obstacle in the front (the end of the wall)
             currentState = "RIGHT_TURN"
             turnCounter = 0 #reset to 0
