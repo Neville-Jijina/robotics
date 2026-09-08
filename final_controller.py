@@ -1,32 +1,111 @@
 """final_controller controller."""
+from controller import Robot, DistanceSensor, Motor
 
-# You may need to import some classes of the controller module. Ex:
-#  from controller import Robot, Motor, DistanceSensor
-from controller import Robot
+# time in [ms] of a simulation step
+TIME_STEP = 64
+
+MAX_SPEED = 6.28
 
 # create the Robot instance.
 robot = Robot()
 
-# get the time step of the current world.
-timestep = int(robot.getBasicTimeStep())
+# initialize devices
+ps = []
+psNames = [
+    'ps0', 'ps1', 'ps2', 'ps3',
+    'ps4', 'ps5', 'ps6', 'ps7'
+]
 
-# You should insert a getDevice-like function in order to get the
-# instance of a device of the robot. Something like:
-#  motor = robot.getDevice('motorname')
-#  ds = robot.getDevice('dsname')
-#  ds.enable(timestep)
+for i in range(8):
+    ps.append(robot.getDevice(psNames[i]))
+    ps[i].enable(TIME_STEP)
 
-# Main loop:
-# - perform simulation steps until Webots is stopping the controller
-while robot.step(timestep) != -1:
-    # Read the sensors:
-    # Enter here functions to read sensor data, like:
-    #  val = ds.getValue()
+ls = []
+lsNames = ['ls0', 'ls1', 'ls2', 'ls3', 'ls4', 'ls5', 'ls6', 'ls7']
 
-    # Process sensor data here.
+for i in range(len(lsNames)):
+    ls.append(robot.getDevice(lsNames[i]))
+    ls[i].enable(TIME_STEP)
 
-    # Enter here functions to send actuator commands, like:
-    #  motor.setPosition(10.0)
-    pass
+leftMotor = robot.getDevice('left wheel motor')
+rightMotor = robot.getDevice('right wheel motor')
+leftMotor.setPosition(float('inf'))
+rightMotor.setPosition(float('inf'))
+leftMotor.setVelocity(0.0)
+rightMotor.setVelocity(0.0)
 
-# Enter here exit cleanup code.
+vL = 0
+vR = 0
+
+#robot starts off following left wall 
+currentState = "FOLLOW_LEFT"
+
+#counting for how long robot is turning for 
+turnCounter = 0
+
+# feedback loop: step simulation until receiving an exit event
+while robot.step(TIME_STEP) != -1:
+    # read sensors outputs
+    psValues = []
+    for i in range(8):
+        psValues.append(ps[i].getValue())
+    #print(psValues) # printing values to see how close wall is
+    print("ps5:", psValues[5], "ps6:", psValues[6]) #print the sensors closest to left wall 
+    print("ps0:", psValues[0], "ps7:", psValues[7]) #print sensors that detect in the front
+    print("ls0:", lsValues[0], "ps:", psValues[7])
+    print("ls2:", lsValues[0], "ps7:", psValues[7])
+    print("ps0:", psValues[0], "ps7:", psValues[7])
+    print("ps0:", psValues[0], "ps7:", psValues[7])
+
+
+    lsValues = []
+    for i in range(8):
+        lsValues.append(ls[i].getValue())
+        
+    # state machine 
+    if currentState == "FOLLOW_LEFT" : 
+        if psValues[0] = 130 #or psValues[7] > 130: 
+            #if there is an obstacle in the front (the end of the wall)
+            currentState = "RIGHT_TURN"
+            turnCounter = 0 #reset to 0
+        
+        elif psValues[5]> 160 :
+            #this range is too close to left wall 
+            #move robot to the right 
+            vL = 0.5 * MAX_SPEED
+            vR = 0.3 * MAX_SPEED
+            
+        elif psValues[5] < 120:
+            #this range is too far from left wall 
+            #move robot to the left 
+            vL = 0.3 * MAX_SPEED
+            vR = 0.5* MAX_SPEED
+        else: 
+            #go straight
+            vL = 0.5 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED
+    
+    elif currentState == "RIGHT_TURN" : 
+        # turn right!
+        vL = 0.5 * MAX_SPEED
+        vR = -0.5 * MAX_SPEED
+        
+        turnCounter += 1
+        
+        #finish turn after 9 steps 
+        if turnCounter >= 9 :
+            currentState = "FOLLOW_LEFT"
+            turnCounter = 0
+        
+    elif currentState == "TURN_180": 
+        pass
+    elif currentState == "FOLLOW_RIGHT": 
+        pass 
+    elif currentState == "STOP" : 
+        vL = 0
+        vR = 0
+        
+
+    # write actuators inputs
+    leftMotor.setVelocity(vL)
+    rightMotor.setVelocity(vR)
