@@ -25,6 +25,7 @@ lsNames = ['ls0', 'ls1', 'ls2', 'ls3', 'ls4', 'ls5', 'ls6', 'ls7']
 for i in range(len(lsNames)):
     ls.append(robot.getDevice(lsNames[i]))
     ls[i].enable(TIME_STEP)
+   
 
 leftMotor = robot.getDevice('left wheel motor')
 rightMotor = robot.getDevice('right wheel motor')
@@ -52,18 +53,13 @@ while robot.step(TIME_STEP) != -1:
     print("ps5:", psValues[5], "ps6:", psValues[6]) #print the sensors closest to left wall 
     print("ps0:", psValues[0], "ps7:", psValues[7]) #print sensors that detect in the front
    
-
-
-
     lsValues = []
     for i in range(8):
         lsValues.append(ls[i].getValue())
         
-    
-        
     # state machine 
     if currentState == "FOLLOW_LEFT" : 
-        if psValues[0] > 130 or psValues[7] > 130: 
+        if psValues[0] > 100 or psValues[7] > 100: 
             #if there is an obstacle in the front (the end of the wall)
             currentState = "RIGHT_TURN"
             turnCounter = 0 #reset to 0
@@ -72,13 +68,13 @@ while robot.step(TIME_STEP) != -1:
             #this range is too close to left wall 
             #move robot to the right 
             vL = 0.5 * MAX_SPEED
-            vR = 0.3 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED
             
         elif psValues[5] < 120:
             #this range is too far from left wall 
             #move robot to the left 
-            vL = 0.3 * MAX_SPEED
-            vR = 0.5* MAX_SPEED
+            vL = 0.5 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED
         else: 
             #go straight
             vL = 0.5 * MAX_SPEED
@@ -91,15 +87,23 @@ while robot.step(TIME_STEP) != -1:
         
         turnCounter += 1
         
-        #finish turn after 9 steps 
-        if turnCounter >= 9 :
+        #finish turn after 12 steps 
+        # if psValues[4] > 130 and psValues[3] > 130:
+            # currentState = "FOLLOW_LEFT"
+        if turnCounter >= 12 :
             currentState = "FOLLOW_LEFT"
             turnCounter = 0
         
     elif currentState == "TURN_180": 
         pass
+        # if lsValues[0] < 10 and lsValues[1] < 10 and lsValues[2] < 10 and lsValues[3] < 10 and lsValues[6] < 10 and lsValues[7] < 10 and lsValues[8] < 10:
+            # vL = 0.5 * MAX_SPEED
+            # vR = -0.5 * MAX_SPEED
+            # if turnCounter >= 18 :
+               # currentState = "FOLLOW_RIGHT"
+               # turnCounter = 0
     elif currentState == "FOLLOW_RIGHT": 
-        pass 
+         pass 
     elif currentState == "STOP" : 
         vL = 0
         vR = 0
