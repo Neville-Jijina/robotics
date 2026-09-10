@@ -43,40 +43,57 @@ currentState = "FOLLOW_LEFT"
 #counting for how long robot is turning for 
 turnCounter = 0
 
+# keeps track of whether robot is currently going around the box
+leftWallWasSeen = False
+
 # feedback loop: step simulation until receiving an exit event
 while robot.step(TIME_STEP) != -1:
     # read sensors outputs
     psValues = []
     for i in range(8):
         psValues.append(ps[i].getValue())
-       
+   
     lsValues = []
     for i in range(8):
         lsValues.append(ls[i].getValue())
         
     # state machine 
     if currentState == "FOLLOW_LEFT" : 
+        # remember when there is wall on the left
+        if psValues[5] > 70:
+            leftWallWasSeen = True
+            
         if psValues[0] > 100 or psValues[7] > 100: 
             #if there is an obstacle in the front (the end of the wall)
             currentState = "RIGHT_TURN"
             turnCounter = 0 #reset to 0
-        
-        elif psValues[5]> 160 :
-            #this range is too close to left wall 
-            #move robot to the right 
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED
             
-        elif psValues[5] < 120:
-            #this range is too far from left wall 
-            #move robot to the left 
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED
+        elif psValues[5] < 60 and psValues[6] < 70:
+            currentState = "LEFT_TURN"
+            turnCounter = 0
 
+            # reset so it doesn't immediately turn left again
+            leftWallWasSeen = False
+           
+            
+        
+        # elif psValues[5]> 160 :
+            # #this range is too close to left wall 
+            # #move robot to the right 
+            # vL = 0.5 * MAX_SPEED
+            # vR = 0.3 * MAX_SPEED
+            
+        # eliif psValues[5] < 120:
+            # #this range is too far from left wall 
+            # #move robot to the left 
+            # vL = 0.3 * MAX_SPEED
+            # vR = 0.5 * MAX_SPEED
+            
         else: 
             #go straight
             vL = 0.5 * MAX_SPEED
             vR = 0.5 * MAX_SPEED
+            
     
     elif currentState == "RIGHT_TURN" : 
         # turn right!
@@ -91,10 +108,18 @@ while robot.step(TIME_STEP) != -1:
         if turnCounter >= 12 :
             currentState = "FOLLOW_LEFT"
             turnCounter = 0
+            
+    elif currentState == "LEFT_TURN":
+        vL = -0.5 * MAX_SPEED
+        vR = 0.5 * MAX_SPEED
+        
+        turnCounter += 1
+        if turnCounter >= 12 :
+            currentState = "FOLLOW_LEFT"
+            turnCounter = 0
         
     elif currentState == "TURN_180": 
         pass
-        #
         # if lsValues[0] < 10 and lsValues[1] < 10 and lsValues[2] < 10 and lsValues[3] < 10 and lsValues[6] < 10 and lsValues[7] < 10 and lsValues[8] < 10:
             # vL = 0.5 * MAX_SPEED
             # vR = -0.5 * MAX_SPEED
@@ -102,55 +127,7 @@ while robot.step(TIME_STEP) != -1:
                # currentState = "FOLLOW_RIGHT"
                # turnCounter = 0
     elif currentState == "FOLLOW_RIGHT": 
-        if psValues[0] > 100 or psValues[7] > 100: 
-            #if there is an obstacle in the front (the end of the wall)
-            currentState = "LEFT_TURN"
-            turnCounter = 0 #reset to 0
-        
-        elif psValues[2]> 160 :
-            #this range is too close to left wall 
-            #move robot to the right 
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED
-            
-        elif psValues[2] < 120:
-            #this range is too far from left wall 
-            #move robot to the left 
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED
-
-        else: 
-            #go straight
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED
-    
-    elif currentState == "RIGHT_TURN" : 
-        # turn right!
-        vL = 0.5 * MAX_SPEED
-        vR = -0.5 * MAX_SPEED
-        
-        turnCounter += 1
-        
-        #finish turn after 12 steps 
-        # if psValues[4] > 130 and psValues[3] > 130:
-            # currentState = "FOLLOW_LEFT"
-        if turnCounter >= 12 :
-            currentState = "FOLLOW_LEFT"
-            turnCounter = 0
-    elif currentState == "LEFT_TURN" : 
-        # turn right!
-        vL = -0.5 * MAX_SPEED
-        vR = 0.5 * MAX_SPEED
-        
-        turnCounter += 1
-        
-        #finish turn after 12 steps 
-        # if psValues[4] > 130 and psValues[3] > 130:
-            # currentState = "FOLLOW_LEFT"
-        if turnCounter >= 12 :
-            currentState = "FOLLOW_RIGHT"
-            turnCounter = 0
-    
+         pass 
     elif currentState == "STOP" : 
         vL = 0
         vR = 0
