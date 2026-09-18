@@ -23,9 +23,6 @@ RIGHT_IDX = 2
 # create the Robot instance.
 robot = Robot()
 
-
-speed_measurement = 0
-
 # ePuck Constants
 EPUCK_AXLE_DIAMETER = 0.053  # ePuck's wheels are 53mm apart.
 # TODO: set the ePuck wheel speed in m/s after measuring the speed (Part 1)
@@ -34,6 +31,7 @@ MAX_SPEED = 6.28
 
 # get the time step of the current world.
 SIM_TIMESTEP = int(robot.getBasicTimeStep())
+
 
 # Initialize Motors
 leftMotor = robot.getDevice('left wheel motor')
@@ -44,6 +42,9 @@ leftMotor.setVelocity(0.0)
 rightMotor.setVelocity(0.0)
 
 # Initialize and Enable the Ground Sensors
+#gs0- left
+#gs1- center
+#gs2- right 
 gsr = [0, 0, 0]
 ground_sensors = [robot.getDevice('gs0'), robot.getDevice(
     'gs1'), robot.getDevice('gs2')]
@@ -58,10 +59,15 @@ for i in range(10):
 vL = 0
 vR = 0
 
-EPUCK_MAX_WHEEL_SPEED = .11
-
+#set up current state 
 currentState = "speed_measurement"
 
+#speed measurement 
+EPUCK_MAX_WHEEL_SPEED = 0.11 #m/s
+
+#general global variables 
+
+startLineTime = 0
 
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -70,8 +76,9 @@ while robot.step(SIM_TIMESTEP) != -1:
     for i, gs in enumerate(ground_sensors):
         gsr[i] = gs.getValue()
 
-    # print(gsr)
-    
+    # TODO: Uncomment to see the ground sensor values!
+    # TODO: But when you don't need it, please comment it so you have a clean terminal.
+    #print(gsr) #when a sensor detects line the range is from 297-303 ish 
 
     # Part 1
     # TODO: Implement Maximum Speed Measurement under state "speed_measurement"
@@ -79,25 +86,64 @@ while robot.step(SIM_TIMESTEP) != -1:
     if currentState == "speed_measurement":
         vL = MAX_SPEED
         vR = MAX_SPEED
-        if gsr[0] > 297 and gsr[0] < 302 and gsr[1] > 297 and gsr[1] < 302 and gsr[2] > 297 and gsr[2] < 302:
+        #have the robot go max speed until line is detected
+        #line is detected when all three sensors detect from 297-303 ish range 
+        if gsr[0] > 297 and gsr[0] < 303 and gsr[1] > 297 and gsr[1] < 303 and gsr[2] > 297 and gsr[2] < 303:
+            vL = 0
+            vR = 0 
+            #print(robot.getTime())
+            #print (SIM_TIMESTEP)
+            #linear translation is -0.2-0.190295 
+            #time step was 3.456 s
+            # speed = 0.11 m/s 
             currentState = "line_follower"
-            print(robot.getTime())
-    
+           
     # Part 2
     # TODO: Implement Line Following under state "line_follower"
     # TODO: Also implement update_odometry and then call update_odometry here
     # Hints for Line Following:
-    elif currentState == "line_follower":
-        vL = MAX_SPEED
-        vR = MAX_SPEED
-        
+    elif currentState == "line_follower" :
+        # start off with all sensors detecting line 
+        if gsr[0] < 350 and gsr[1] < 350 and gsr[2] < 350:
+            print("striaght")
+            vL = MAX_SPEED
+            vR = MAX_SPEED
+        # left and center detect black 
+        elif gsr[0] < 350 and gsr[1] < 350:
+            print("left and center")
+            vL = -0.1 * MAX_SPEED
+            vR = 0.1 * MAX_SPEED        
+        # right and center detect black 
+        elif gsr[2] < 350 and gsr[1] < 350:
+            print("right and center")
+            vL = 0.1 * MAX_SPEED
+            vR = -0.1 * MAX_SPEED
+        #center 
+        elif gsr[1] < 350:
+            print("center")
+            vL = 0.5 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED
+        #left sensor 
+        elif gsr[0] < 350:
+            print("left")
+            #turn left 
+            vL = -0.1 * MAX_SPEED
+            vR = 0.1 * MAX_SPEED
+        #right sensor 
+        elif gsr[2] < 350: 
+            #turn right 
+            print("right")
+            vL = 0.1 * MAX_SPEED
+            vR = -0.1 * MAX_SPEED
+        #sensors detect nothing, so search for line 
+        else :
+            vL = -0.1 * MAX_SPEED
+            vR = 0.1 * MAX_SPEED
         
     #
     # 1) Setting vL=MAX_SPEED and vR=-MAX_SPEED lets the robot turn
     # right on the spot. vL=MAX_SPEED and vR=0.5*MAX_SPEED lets the
     # robot drive a right curve.
-        
-        
     #
     # 2) If your robot "overshoots", turn slower.
     #
@@ -131,6 +177,6 @@ while robot.step(SIM_TIMESTEP) != -1:
     # 2) Use the pose when you encounter the line last
     # for best results
 
-    print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    #print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
