@@ -60,7 +60,7 @@ vL = 0
 vR = 0
 
 #set up current state 
-currentState = "speed_measurement"
+currentState = "line_follower"
 
 #speed measurement 
 EPUCK_MAX_WHEEL_SPEED = 0.11 #m/s
