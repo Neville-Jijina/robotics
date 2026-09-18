@@ -69,6 +69,22 @@ EPUCK_MAX_WHEEL_SPEED = 0.11 #m/s
 
 startLineTime = 0
 
+def update_odometry(x,y,theta,vL,vR):
+   
+   delta_time = SIM_TIMESTEP / 1000
+   
+   left = (vL / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
+   right = (vR / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
+   
+   forward_speed = (left + right) / 2
+   angle_speed = (left + right) / EPUCK_AXLE_DIAMETER
+   
+   x += forward_speed * math.cos(theta) * delta_time
+   y += forward_speed * math.sin(theta) * delta_time
+   theta += angle_speed * delta_time 
+   
+   return x,y,theta
+
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
 
