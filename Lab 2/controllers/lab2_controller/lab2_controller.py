@@ -8,7 +8,7 @@ from controller import Robot, Motor, DistanceSensor
 # Ground Sensor Measurements under this threshold are black
 # measurements above this threshold can be considered white.
 # TODO: Set a reasonable threshold that separates "line detected" from "no line detected"
-GROUND_SENSOR_THRESHOLD = 0
+GROUND_SENSOR_THRESHOLD = 500
 
 # These are your pose values that you will update by solving the odometry equations
 pose_x = 0
@@ -60,7 +60,7 @@ vL = 0
 vR = 0
 
 #set up current state 
-currentState = "line_follower"
+currentState = "speed_measurement"
 
 #speed measurement 
 EPUCK_MAX_WHEEL_SPEED = 0.11 #m/s
@@ -68,6 +68,22 @@ EPUCK_MAX_WHEEL_SPEED = 0.11 #m/s
 #general global variables 
 
 startLineTime = 0
+
+def update_odometry(x,y,theta,vL,vR):
+   
+   delta_time = SIM_TIMESTEP / 1000
+   
+   left = (vL / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
+   right = (vR / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
+   
+   forward_speed = (left + right) / 2
+   angle_speed = (left - right) / EPUCK_AXLE_DIAMETER
+   
+   x += forward_speed * math.cos(theta) * delta_time
+   y += forward_speed * math.sin(theta) * delta_time
+   theta += angle_speed * delta_time
+   
+   return x,y,theta
 
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -103,42 +119,44 @@ while robot.step(SIM_TIMESTEP) != -1:
     # TODO: Also implement update_odometry and then call update_odometry here
     # Hints for Line Following:
     elif currentState == "line_follower" :
+        
         # start off with all sensors detecting line 
-        if gsr[0] < 350 and gsr[1] < 350 and gsr[2] < 350:
-            print("striaght")
+        if gsr[0] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD and gsr[2] < GROUND_SENSOR_THRESHOLD:
+            #print("striaght")
             vL = MAX_SPEED
             vR = MAX_SPEED
         # left and center detect black 
-        elif gsr[0] < 350 and gsr[1] < 350:
-            print("left and center")
+        elif gsr[0] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD:
+            #print("left and center")
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED        
         # right and center detect black 
-        elif gsr[2] < 350 and gsr[1] < 350:
-            print("right and center")
+        elif gsr[2] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD:
+            #print("right and center")
             vL = 0.1 * MAX_SPEED
             vR = -0.1 * MAX_SPEED
         #center 
-        elif gsr[1] < 350:
-            print("center")
+        elif gsr[1] < GROUND_SENSOR_THRESHOLD:
+            #print("center")
             vL = 0.5 * MAX_SPEED
             vR = 0.5 * MAX_SPEED
         #left sensor 
-        elif gsr[0] < 350:
-            print("left")
+        elif gsr[0] < GROUND_SENSOR_THRESHOLD:
+            #print("left")
             #turn left 
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED
         #right sensor 
-        elif gsr[2] < 350: 
+        elif gsr[2] < GROUND_SENSOR_THRESHOLD: 
             #turn right 
-            print("right")
+            #print("right")
             vL = 0.1 * MAX_SPEED
             vR = -0.1 * MAX_SPEED
         #sensors detect nothing, so search for line 
         else :
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED
+        pose_x,pose_y,pose_theta = update_odometry(pose_x,pose_y,pose_theta, vL, vR)
         
     #
     # 1) Setting vL=MAX_SPEED and vR=-MAX_SPEED lets the robot turn
@@ -177,6 +195,6 @@ while robot.step(SIM_TIMESTEP) != -1:
     # 2) Use the pose when you encounter the line last
     # for best results
 
-    #print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
