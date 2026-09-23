@@ -121,22 +121,22 @@ while robot.step(SIM_TIMESTEP) != -1:
     elif currentState == "line_follower" :
         # start off with all sensors detecting line 
         if gsr[0] < 350 and gsr[1] < 350 and gsr[2] < 350:
-            print("striaght")
+            # print("striaght")
             vL = MAX_SPEED
             vR = MAX_SPEED
         # left and center detect black 
         elif gsr[0] < 350 and gsr[1] < 350:
-            print("left and center")
+            # print("left and center")
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED        
         # right and center detect black 
         elif gsr[2] < 350 and gsr[1] < 350:
-            print("right and center")
+            # print("right and center")
             vL = 0.1 * MAX_SPEED
             vR = -0.1 * MAX_SPEED
         #center 
         elif gsr[1] < 350:
-            print("center")
+            # print("center")
             vL = 0.5 * MAX_SPEED
             vR = 0.5 * MAX_SPEED
         #left sensor 
@@ -148,13 +148,15 @@ while robot.step(SIM_TIMESTEP) != -1:
         #right sensor 
         elif gsr[2] < 350: 
             #turn right 
-            print("right")
+            # print("right")
             vL = 0.1 * MAX_SPEED
             vR = -0.1 * MAX_SPEED
         #sensors detect nothing, so search for line 
         else :
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED
+    pose_x,pose_y,pose_theta = update_odometry(pose_x,pose_y,pose_theta, vL, vR)
+
         
     #
     # 1) Setting vL=MAX_SPEED and vR=-MAX_SPEED lets the robot turn
