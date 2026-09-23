@@ -8,7 +8,7 @@ from controller import Robot, Motor, DistanceSensor
 # Ground Sensor Measurements under this threshold are black
 # measurements above this threshold can be considered white.
 # TODO: Set a reasonable threshold that separates "line detected" from "no line detected"
-GROUND_SENSOR_THRESHOLD = 0
+GROUND_SENSOR_THRESHOLD = 500
 
 # These are your pose values that you will update by solving the odometry equations
 pose_x = 0
@@ -77,13 +77,18 @@ def update_odometry(x,y,theta,vL,vR):
    right = (vR / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
    
    forward_speed = (left + right) / 2
-   angle_speed = (left + right) / EPUCK_AXLE_DIAMETER
+   angle_speed = (right - left) / EPUCK_AXLE_DIAMETER
    
    x += forward_speed * math.cos(theta) * delta_time
    y += forward_speed * math.sin(theta) * delta_time
    theta += angle_speed * delta_time 
    
    return x,y,theta
+
+
+atStartLine = False
+startTiming = 0.0
+onStartLine = False
 
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -112,6 +117,7 @@ while robot.step(SIM_TIMESTEP) != -1:
             #linear translation is -0.2-0.190295 
             #time step was 3.456 s
             # speed = 0.11 m/s 
+
             currentState = "line_follower"
            
     # Part 2
@@ -119,6 +125,24 @@ while robot.step(SIM_TIMESTEP) != -1:
     # TODO: Also implement update_odometry and then call update_odometry here
     # Hints for Line Following:
     elif currentState == "line_follower" :
+    
+    
+        if gsr[0] > 297 and gsr[0] < 303 and gsr[1] > 297 and gsr[1] < 303 and gsr[2] > 297 and gsr[2] < 303:
+            if atStartLine == False:
+                # just entered the range -> start the clock
+                startTiming = robot.getTime()
+                atStartLine = True
+            elif onStartLine == False and (robot.getTime() - startTiming) > 0.1:
+                # been in range continuously for > 0.1s -> real crossing
+                pose_x = 0
+                pose_y = 0
+                pose_theta = 0
+                print("Odometry reset")
+                onStartLine = True
+        else:
+            # left the range -> reset both the timer and the debounce flag
+            atStartLine = False
+            onStartLine = False
         # start off with all sensors detecting line 
         if gsr[0] < 350 and gsr[1] < 350 and gsr[2] < 350:
             # print("striaght")
@@ -141,7 +165,7 @@ while robot.step(SIM_TIMESTEP) != -1:
             vR = 0.5 * MAX_SPEED
         #left sensor 
         elif gsr[0] < 350:
-            print("left")
+            #print("left")
             #turn left 
             vL = -0.1 * MAX_SPEED
             vR = 0.1 * MAX_SPEED
@@ -195,6 +219,6 @@ while robot.step(SIM_TIMESTEP) != -1:
     # 2) Use the pose when you encounter the line last
     # for best results
 
-    #print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
