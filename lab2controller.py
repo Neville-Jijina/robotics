@@ -129,18 +129,18 @@ while robot.step(SIM_TIMESTEP) != -1:
     
         if gsr[0] > 297 and gsr[0] < 303 and gsr[1] > 297 and gsr[1] < 303 and gsr[2] > 297 and gsr[2] < 303:
             if atStartLine == False:
-                # just entered the range -> start the clock
+                
                 startTiming = robot.getTime()
                 atStartLine = True
             elif onStartLine == False and (robot.getTime() - startTiming) > 0.1:
-                # been in range continuously for > 0.1s -> real crossing
+               
                 pose_x = 0
                 pose_y = 0
                 pose_theta = 0
                 print("Odometry reset")
                 onStartLine = True
         else:
-            # left the range -> reset both the timer and the debounce flag
+
             atStartLine = False
             onStartLine = False
         # start off with all sensors detecting line 
