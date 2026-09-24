@@ -77,13 +77,18 @@ def update_odometry(x,y,theta,vL,vR):
    right = (vR / MAX_SPEED) * EPUCK_MAX_WHEEL_SPEED
    
    forward_speed = (left + right) / 2
-   angle_speed = (left - right) / EPUCK_AXLE_DIAMETER
+   angle_speed = (right - left) / EPUCK_AXLE_DIAMETER
    
    x += forward_speed * math.cos(theta) * delta_time
    y += forward_speed * math.sin(theta) * delta_time
-   theta += angle_speed * delta_time
+   theta += angle_speed * delta_time 
    
    return x,y,theta
+
+
+atStartLine = False
+startTiming = 0.0
+onStartLine = False
 
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -119,6 +124,22 @@ while robot.step(SIM_TIMESTEP) != -1:
     # TODO: Also implement update_odometry and then call update_odometry here
     # Hints for Line Following:
     elif currentState == "line_follower" :
+    
+        if (gsr[0] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD and gsr[2] < GROUND_SENSOR_THRESHOLD):
+                if atStartLine == False:
+                
+                    startTiming = robot.getTime()
+                    atStartLine = True
+                elif onStartLine == False and (robot.getTime() - startTiming) > 0.1:
+               
+                    pose_x = 0
+                    pose_y = 0
+                    pose_theta = 0
+                    print("Odometry reset")
+                    onStartLine = True
+        else:
+                atStartLine = False
+                onStartLine = False
         
         # start off with all sensors detecting line 
         if gsr[0] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD and gsr[2] < GROUND_SENSOR_THRESHOLD:
