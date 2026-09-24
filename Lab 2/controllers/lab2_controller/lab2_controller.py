@@ -8,7 +8,7 @@ from controller import Robot, Motor, DistanceSensor
 # Ground Sensor Measurements under this threshold are black
 # measurements above this threshold can be considered white.
 # TODO: Set a reasonable threshold that separates "line detected" from "no line detected"
-GROUND_SENSOR_THRESHOLD = 500
+GROUND_SENSOR_THRESHOLD = 600
 
 # These are your pose values that you will update by solving the odometry equations
 pose_x = 0
@@ -128,13 +128,13 @@ while robot.step(SIM_TIMESTEP) != -1:
         # left and center detect black 
         elif gsr[0] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD:
             #print("left and center")
-            vL = -0.1 * MAX_SPEED
-            vR = 0.1 * MAX_SPEED        
+            vL = 0.25 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED        
         # right and center detect black 
         elif gsr[2] < GROUND_SENSOR_THRESHOLD and gsr[1] < GROUND_SENSOR_THRESHOLD:
             #print("right and center")
-            vL = 0.1 * MAX_SPEED
-            vR = -0.1 * MAX_SPEED
+            vL = 0.5 * MAX_SPEED
+            vR = 0.25 * MAX_SPEED
         #center 
         elif gsr[1] < GROUND_SENSOR_THRESHOLD:
             #print("center")
