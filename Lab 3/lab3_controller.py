@@ -64,11 +64,11 @@ def new_position(current_pos, object_pos):
     
     return distance
 
-def bearing(current_heading, object_pos):
+def bearing(current_pos, object_pos):
     delta_x = object_pos[0] - current_pos[0]
     delta_y = object_pos[1] - current_pos[1]
     
-    bearing = math.atany(delta_x, delta_y)
+    bearing = math.atan2(delta_x, delta_y)
     return bearing
     
 def heading(current_heading, bearing):
@@ -96,9 +96,34 @@ while robot.step(SIM_TIMESTEP) != -1:
     pose_y = gps.getValues()[1]
     pose_theta = np.arctan2(compass.getValues()[0], compass.getValues()[1])
     
+    waypoint_found = False
+    waypoint_num = 0
+    
+    current_state = "find_waypoint"
+    new_heading = 0
+    new_bearing = 0
+    new_distance = 0
+    
     # TODO: controller
+    if current_state == "find_waypoint":
+        print("finding waypoint")
+    
+        if waypoint_found == False:
+            new_waypoint = waypoints[waypoint_num]
+            new_distance = new_position([pose_x, pose_y], new_waypoint)
+            new_bearing = bearing([pose_x, pose_y], new_waypoint)
+            new_heading = heading(pose_theta, new_bearing)
+            waypoint_found = True
+            current_state = "forward"
+        
+    if current_state == "forward":
+        vL = 0.5 * MAX_SPEED
+        vR = 0.5 * MAX_SPEED 
     
     
     print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
+
+
+
