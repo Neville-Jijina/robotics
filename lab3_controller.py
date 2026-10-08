@@ -68,11 +68,11 @@ def new_position(current_pos, object_pos):
     
     return distance
 
-def bearing(current_heading, object_pos):
+def bearing(current_pos, object_pos):
     delta_x = object_pos[0] - current_pos[0]
     delta_y = object_pos[1] - current_pos[1]
     
-    bearing = math.atany(delta_x, delta_y)
+    bearing = math.atan2(delta_x, delta_y)
     return bearing
     
 def heading(current_heading, bearing):
@@ -81,9 +81,12 @@ def heading(current_heading, bearing):
     
     
 currentState = "turnWaypoint"
-distance = 1
-bearing = 1
-eta = 1
+
+dist_thresh = 1
+
+bearing_thresh = 1
+
+eta_thresh = 1
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
     # Safety check: make sure waypoints are defined
