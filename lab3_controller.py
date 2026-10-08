@@ -58,7 +58,7 @@ marker = robot.getFromDef("marker").getField("translation")
 
 
 def wrapper(angle):
-    return math.atan2(math.sin(angle),math.cos(angle))
+    return np.atan2(math.sin(angle),math.cos(angle))
 
 def new_position(current_pos, object_pos):
     delta_x = object_pos[0] - current_pos[0]
@@ -106,10 +106,22 @@ while robot.step(SIM_TIMESTEP) != -1:
     pose_theta = np.arctan2(compass.getValues()[0], compass.getValues()[1])
     
     # TODO: controller
-    goal_x = waypoints[index][0] 
+    goal_x = waypoints[index][0]
     goal_y = waypoints[index][1]
+    next_x = waypoints[(index+1) % len(waypoints)]
+    next_y = waypoints[(index+1) % len(waypoints)]
+    goal_theta = np.artan2(next_y - goal_y, goal_x - next_x)
     
-    if currentState = "turnWaypoint":
+    
+    position = new_position((goal_x,goal_y), (pose_x,pose_y))
+    heading = wrapper(bearing((pose_x, pose_y), (goal_x, goal_y), pose_theta))
+    eta = wrapper(heading(pose_theta,goal_theta))
+    
+    
+    vR = 0
+    vL = 0
+    
+    if currentState == "turnWaypoint":
         
        
     print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
