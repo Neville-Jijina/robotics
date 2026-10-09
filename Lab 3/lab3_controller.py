@@ -49,7 +49,7 @@ compass.enable(SIM_TIMESTEP)
 # TODO: Find waypoints to navigate around the arena while avoiding obstacles
 # Use shift+drag on the ping pong marker in the simulator to find good waypoints.
 # Add them as (x, y) tuples. You need at least one waypoint before running!
-waypoints = [(-0.154705, -0.414838), (0.325295, -0.414838), (0.325295, -0.254838)] # e.g. [(-0.1, -0.4), (0.3, -0.4), ...]
+waypoints = [(-0.154705, -0.414838), (0.325295, -0.414838), (0.325295, -0.254838), (0.015295, -0.014838), (0.355295, 0.295162), (0.125295, 0.425162), (-0.304705, 0.405162), (-0.194705, 0.295162), (-0.194705, -0.0014838), (-0.314705, -0.184838)] # e.g. [(-0.1, -0.4), (0.3, -0.4), ...]
 # Index indicating which waypoint the robot is reaching next
 index = 0
 
@@ -118,12 +118,12 @@ while robot.step(SIM_TIMESTEP) != -1:
         
         if(new_heading > 0.1):
             print("turn left")
-            vL = -0.1 * MAX_SPEED
-            vR = 0.1 * MAX_SPEED
+            vL = -0.3 * MAX_SPEED
+            vR = 0.3 * MAX_SPEED
         elif(new_heading < -0.1):
             print("turn right")
-            vL = 0.1 * MAX_SPEED
-            vR = -0.1 * MAX_SPEED
+            vL = 0.3 * MAX_SPEED
+            vR = -0.3 * MAX_SPEED
         else:
             print("forward")
             current_state = "forward"
@@ -135,14 +135,17 @@ while robot.step(SIM_TIMESTEP) != -1:
         if new_distance <= 0.05:
             print("Waypoint Found!")
             waypoint_found = False
-            index += 1
+            if ((index + 1) == len(waypoints)):
+                index = 0
+            else:
+                index += 1
             print(index)
             vL = 0 * MAX_SPEED
             vR = 0 * MAX_SPEED 
             current_state = "find_waypoint"
         else:
-            vL = 0.5 * MAX_SPEED
-            vR = 0.5 * MAX_SPEED 
+            vL = MAX_SPEED
+            vR = MAX_SPEED 
     
     
     # print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
