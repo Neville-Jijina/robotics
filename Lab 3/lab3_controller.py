@@ -132,13 +132,14 @@ while robot.step(SIM_TIMESTEP) != -1:
         new_distance = new_position([pose_x, pose_y], new_waypoint)
         print(new_distance)
         
-        if new_distance <= 0.03:
+        if new_distance <= 0.05:
             print("Waypoint Found!")
             waypoint_found = False
-            index = index + 1
+            index += 1
+            print(index)
             vL = 0 * MAX_SPEED
             vR = 0 * MAX_SPEED 
-            current_state == "find_waypoint"
+            current_state = "find_waypoint"
         else:
             vL = 0.5 * MAX_SPEED
             vR = 0.5 * MAX_SPEED 
