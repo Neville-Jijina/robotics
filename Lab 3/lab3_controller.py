@@ -59,7 +59,6 @@ marker = robot.getFromDef("marker").getField("translation")
 def new_position(current_pos, object_pos):
     delta_x = object_pos[0] - current_pos[0]
     delta_y = object_pos[1] - current_pos[1]
-    
     distance = np.sqrt((delta_x**2) + (delta_y**2))
     
     return distance
@@ -67,13 +66,21 @@ def new_position(current_pos, object_pos):
 def bearing(current_pos, object_pos):
     delta_x = object_pos[0] - current_pos[0]
     delta_y = object_pos[1] - current_pos[1]
+    target_bearing = math.atan2(delta_y, delta_x)
     
-    bearing = math.atan2(delta_x, delta_y)
-    return bearing
+    return target_bearing
     
 def heading(current_heading, bearing):
     rotation_needed = bearing - current_heading
+    rotation_needed = math.atan2(np.sin(rotation_needed), np.cos(rotation_needed))
+    
     return rotation_needed
+    
+current_state = "find_waypoint"
+waypoint_found = False
+new_heading = 0
+new_bearing = 0
+new_distance = 0
     
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -95,33 +102,49 @@ while robot.step(SIM_TIMESTEP) != -1:
     pose_x = gps.getValues()[0]
     pose_y = gps.getValues()[1]
     pose_theta = np.arctan2(compass.getValues()[0], compass.getValues()[1])
-    
-    waypoint_found = False
-    waypoint_num = 0
-    
-    current_state = "find_waypoint"
-    new_heading = 0
-    new_bearing = 0
-    new_distance = 0
-    
+
     # TODO: controller
     if current_state == "find_waypoint":
         print("finding waypoint")
+        new_waypoint = waypoints[index]
+        waypoint_found = True
+        current_state = "adjust_heading"
+            # print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     
-        if waypoint_found == False:
-            new_waypoint = waypoints[waypoint_num]
-            new_distance = new_position([pose_x, pose_y], new_waypoint)
-            new_bearing = bearing([pose_x, pose_y], new_waypoint)
-            new_heading = heading(pose_theta, new_bearing)
-            waypoint_found = True
+    elif current_state == "adjust_heading":
+        new_bearing = bearing([pose_x, pose_y], new_waypoint)
+        new_heading = heading(pose_theta, new_bearing)
+        print("Need heading: ", new_heading)
+        
+        if(new_heading > 0.1):
+            print("turn left")
+            vL = -0.1 * MAX_SPEED
+            vR = 0.1 * MAX_SPEED
+        elif(new_heading < -0.1):
+            print("turn right")
+            vL = 0.1 * MAX_SPEED
+            vR = -0.1 * MAX_SPEED
+        else:
+            print("forward")
             current_state = "forward"
         
-    if current_state == "forward":
-        vL = 0.5 * MAX_SPEED
-        vR = 0.5 * MAX_SPEED 
+    elif current_state == "forward":
+        new_distance = new_position([pose_x, pose_y], new_waypoint)
+        print(new_distance)
+        
+        if new_distance <= 0.03:
+            print("Waypoint Found!")
+            waypoint_found = False
+            index = index + 1
+            vL = 0 * MAX_SPEED
+            vR = 0 * MAX_SPEED 
+            current_state == "find_waypoint"
+        else:
+            vL = 0.5 * MAX_SPEED
+            vR = 0.5 * MAX_SPEED 
     
     
-    print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    # print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
 
