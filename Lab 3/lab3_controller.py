@@ -9,6 +9,36 @@ pose_x = 0
 pose_y = 0
 pose_theta = 0
 
+# Custom Functions and variables
+current_state = "find_waypoint"
+waypoint_found = False
+new_heading = 0
+new_bearing = 0
+new_distance = 0
+tweak_value = 3.0
+
+def new_position(current_pos, object_pos):
+    delta_x = object_pos[0] - current_pos[0]
+    delta_y = object_pos[1] - current_pos[1]
+    distance = np.sqrt((delta_x**2) + (delta_y**2))
+    return distance
+
+def bearing(current_pos, object_pos):
+    delta_x = object_pos[0] - current_pos[0]
+    delta_y = object_pos[1] - current_pos[1]
+    target_bearing = math.atan2(delta_y, delta_x)
+    return target_bearing
+    
+def heading(current_heading, bearing):
+    rotation_needed = bearing - current_heading
+    rotation_needed = math.atan2(np.sin(rotation_needed), np.cos(rotation_needed))
+    return rotation_needed
+
+def inverse_func(v, yaw):
+    vL = (v - (yaw * EPUCK_AXLE_DIAMETER / 2.0)) / WHEEL_RADIUS
+    vR = (v + (yaw * EPUCK_AXLE_DIAMETER / 2.0)) / WHEEL_RADIUS
+    return vL, vR
+
 # create the Robot instance.
 robot = Supervisor()
 
@@ -16,6 +46,9 @@ robot = Supervisor()
 EPUCK_AXLE_DIAMETER = 0.053 # ePuck's wheels are 53mm apart.
 EPUCK_MAX_WHEEL_SPEED = 0.1257 # ePuck wheel speed in m/s
 MAX_SPEED = 6.28
+
+# adding radius
+WHEEL_RADIUS = EPUCK_MAX_WHEEL_SPEED / MAX_SPEED
 
 # get the time step of the current world.
 SIM_TIMESTEP = int(robot.getBasicTimeStep())
@@ -55,32 +88,6 @@ index = 0
 
 # Get ping pong ball marker that marks the next waypoint the robot is reaching
 marker = robot.getFromDef("marker").getField("translation")
-
-def new_position(current_pos, object_pos):
-    delta_x = object_pos[0] - current_pos[0]
-    delta_y = object_pos[1] - current_pos[1]
-    distance = np.sqrt((delta_x**2) + (delta_y**2))
-    
-    return distance
-
-def bearing(current_pos, object_pos):
-    delta_x = object_pos[0] - current_pos[0]
-    delta_y = object_pos[1] - current_pos[1]
-    target_bearing = math.atan2(delta_y, delta_x)
-    
-    return target_bearing
-    
-def heading(current_heading, bearing):
-    rotation_needed = bearing - current_heading
-    rotation_needed = math.atan2(np.sin(rotation_needed), np.cos(rotation_needed))
-    
-    return rotation_needed
-    
-current_state = "find_waypoint"
-waypoint_found = False
-new_heading = 0
-new_bearing = 0
-new_distance = 0
     
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
@@ -105,7 +112,7 @@ while robot.step(SIM_TIMESTEP) != -1:
 
     # TODO: controller
     if current_state == "find_waypoint":
-        print("finding waypoint")
+       # print("finding waypoint")
         new_waypoint = waypoints[index]
         waypoint_found = True
         current_state = "adjust_heading"
@@ -114,32 +121,33 @@ while robot.step(SIM_TIMESTEP) != -1:
     elif current_state == "adjust_heading":
         new_bearing = bearing([pose_x, pose_y], new_waypoint)
         new_heading = heading(pose_theta, new_bearing)
-        print("Need heading: ", new_heading)
         
-        if(new_heading > 0.1):
-            print("turn left")
-            vL = -0.3 * MAX_SPEED
-            vR = 0.3 * MAX_SPEED
-        elif(new_heading < -0.1):
-            print("turn right")
-            vL = 0.3 * MAX_SPEED
-            vR = -0.3 * MAX_SPEED
+        # Bearing and Heading test prints
+        #print("New bearing: ", new_bearing)
+        #print("Adjusting heading: ", new_heading)
+        
+        if abs(new_heading) > 0.02:
+            target_v = 0.0
+            yaw = tweak_value * new_heading
+            vL, vR = inverse_func(target_v, yaw)
+            vL = np.clip(vL, -MAX_SPEED, MAX_SPEED)
+            vR = np.clip(vR, -MAX_SPEED, MAX_SPEED)
+            
         else:
-            print("forward")
             current_state = "forward"
         
     elif current_state == "forward":
         new_distance = new_position([pose_x, pose_y], new_waypoint)
-        print(new_distance)
+        # print(new_distance)
         
         if new_distance <= 0.05:
-            print("Waypoint Found!")
+            #print("Waypoint Found!")
             waypoint_found = False
             if ((index + 1) == len(waypoints)):
                 index = 0
             else:
                 index += 1
-            print(index)
+            #print(index)
             vL = 0 * MAX_SPEED
             vR = 0 * MAX_SPEED 
             current_state = "find_waypoint"
@@ -148,7 +156,12 @@ while robot.step(SIM_TIMESTEP) != -1:
             vR = MAX_SPEED 
     
     
-    # print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    line_error = gsr[0] - gsr[2]
+    dist_error = new_position([pose_x, pose_y], new_waypoint)
+    print("Pose: [%.3f, %.3f, %.3f] | Line Error: %.3f | Dist Error: %.3f | Heading Error: %.3f" % 
+          (pose_x, pose_y, pose_theta, line_error, dist_error, new_heading))
+    
+    #print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
 
