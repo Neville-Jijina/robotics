@@ -9,6 +9,38 @@ pose_x = 0
 pose_y = 0
 pose_theta = 0
 
+# Custom Functions and variables
+current_state = "find_waypoint"
+waypoint_found = False
+new_heading = 0
+new_bearing = 0
+new_distance = 0
+gain_bearing = 3.0
+gain_distance = 0.2
+gain_heading = 3.0
+
+def new_position(current_pos, object_pos):
+    delta_x = object_pos[0] - current_pos[0]
+    delta_y = object_pos[1] - current_pos[1]
+    distance = np.sqrt((delta_x**2) + (delta_y**2))
+    return distance
+
+def bearing(current_pos, object_pos):
+    delta_x = object_pos[0] - current_pos[0]
+    delta_y = object_pos[1] - current_pos[1]
+    target_bearing = math.atan2(delta_y, delta_x)
+    return target_bearing
+    
+def heading(current_heading, bearing):
+    rotation_needed = bearing - current_heading
+    rotation_needed = math.atan2(np.sin(rotation_needed), np.cos(rotation_needed))
+    return rotation_needed
+
+def inverse_func(v, yaw):
+    vL = (v - (yaw * EPUCK_AXLE_DIAMETER / 2.0)) / WHEEL_RADIUS
+    vR = (v + (yaw * EPUCK_AXLE_DIAMETER / 2.0)) / WHEEL_RADIUS
+    return vL, vR
+
 # create the Robot instance.
 robot = Supervisor()
 
@@ -16,6 +48,9 @@ robot = Supervisor()
 EPUCK_AXLE_DIAMETER = 0.053 # ePuck's wheels are 53mm apart.
 EPUCK_MAX_WHEEL_SPEED = 0.1257 # ePuck wheel speed in m/s
 MAX_SPEED = 6.28
+
+# adding radius
+WHEEL_RADIUS = EPUCK_MAX_WHEEL_SPEED / MAX_SPEED
 
 # get the time step of the current world.
 SIM_TIMESTEP = int(robot.getBasicTimeStep())
@@ -49,13 +84,13 @@ compass.enable(SIM_TIMESTEP)
 # TODO: Find waypoints to navigate around the arena while avoiding obstacles
 # Use shift+drag on the ping pong marker in the simulator to find good waypoints.
 # Add them as (x, y) tuples. You need at least one waypoint before running!
-waypoints = [(-0.154705, -0.414838, 0.02), (0.325295, -0.414838, 0.02), (0.325295, -0.254838, 0.02)] # e.g. [(-0.1, -0.4), (0.3, -0.4), ...]
+waypoints = [(-0.154705, -0.414838), (0.325295, -0.414838), (0.325295, -0.254838), (0.015295, -0.014838), (0.355295, 0.295162), (0.125295, 0.425162), (-0.304705, 0.405162), (-0.194705, 0.295162), (-0.194705, -0.0014838), (-0.314705, -0.184838)] # e.g. [(-0.1, -0.4), (0.3, -0.4), ...]
 # Index indicating which waypoint the robot is reaching next
 index = 0
 
 # Get ping pong ball marker that marks the next waypoint the robot is reaching
 marker = robot.getFromDef("marker").getField("translation")
-
+    
 # Main Control Loop:
 while robot.step(SIM_TIMESTEP) != -1:
     # Safety check: make sure waypoints are defined
@@ -63,8 +98,8 @@ while robot.step(SIM_TIMESTEP) != -1:
         print("ERROR: No waypoints defined! Please add waypoints to the waypoints list.")
         leftMotor.setVelocity(0.0)
         rightMotor.setVelocity(0.0)
-        continue
-
+        continue    
+        
     # Set the position of the marker
     marker.setSFVec3f([waypoints[index][0], waypoints[index][1], 0.01])
     
@@ -76,58 +111,66 @@ while robot.step(SIM_TIMESTEP) != -1:
     pose_x = gps.getValues()[0]
     pose_y = gps.getValues()[1]
     pose_theta = np.arctan2(compass.getValues()[0], compass.getValues()[1])
-    
+
     # TODO: controller
-    # part 2:
-    #position error 
-    rho = np.sqrt((goal_x - pose_x)**2 + (goal_y - pose_y)**2)
-    #bearing error 
-    alpha = np.arctan2(goal_y - pose_y, goal_x - pose_x) - pose_theta
-    #heading error
-    eta = goal_theta - pose_theta
-    #wrap alpha and eta from -pi to pi 
-    alpha = np.arctan2(np.sin(alpha), np.cos(alpha))
-    eta = np.arctan2(np.sin(eta), np.cos(eta))
+    if current_state == "find_waypoint":
+       # print("finding waypoint")
+        new_waypoint = waypoints[index]
+        waypoint_found = True
+        current_state = "adjust_heading"
+            # print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     
-    #part 3: 
-    # controller gains 
-    #will need tuning 
-    p1 = 1.0 #distance
-    p2 = 1.0 #bearing
-    p3 = 1.0 #heading 
+    elif current_state == "adjust_heading":
+        new_bearing = bearing([pose_x, pose_y], new_waypoint)
+        new_heading = heading(pose_theta, new_bearing)
+        
+        # Bearing and Heading test prints
+        #print("New bearing: ", new_bearing)
+        #print("Adjusting heading: ", new_heading)
+        
+        if abs(new_heading) > 0.02:
+            target_v = 0.0
+            yaw = gain_bearing * new_heading
+            vL, vR = inverse_func(target_v, yaw)
+            vL = np.clip(vL, -MAX_SPEED, MAX_SPEED)
+            vR = np.clip(vR, -MAX_SPEED, MAX_SPEED)
+            
+        else:
+            current_state = "forward"
+        
+    elif current_state == "forward":
+        new_bearing = bearing([pose_x, pose_y], new_waypoint)
+        new_heading = heading(pose_theta, new_bearing)
+        
+        new_distance = new_position([pose_x, pose_y], new_waypoint)
+        # print(new_distance)
+        
+        if new_distance <= 0.05:
+            #print("Waypoint Found!")
+            waypoint_found = False
+            if ((index + 1) == len(waypoints)):
+                index = 0
+            else:
+                index += 1
+            #print(index)
+            vL = 0 * MAX_SPEED
+            vR = 0 * MAX_SPEED 
+            current_state = "find_waypoint"
+        else:
+            target_v = gain_distance * dist_error
+            yaw = gain_bearing * new_heading
+            target_v = target_v * max(0.0, math.cos(new_heading))
+            vL, vR = inverse_func(target_v, yaw) 
+            
+            vL = np.clip(vL, -MAX_SPEED, MAX_SPEED)
+            vR = np.clip(vR, -MAX_SPEED, MAX_SPEED)
     
-    #desired translational velocity 
-    x_dot_R = p1 * rho
     
-    #desired rotational velocity 
-    theta_dot = p2 * alpha + p3 * eta
+    line_error = gsr[0] - gsr[2]
+    dist_error = new_position([pose_x, pose_y], new_waypoint)
+    print("Pose: [%.3f, %.3f, %.3f] | Line Error: %.3f | Dist Error: %.3f | Heading Error: %.3f" % 
+          (pose_x, pose_y, pose_theta, line_error, dist_error, new_heading))
     
-    #distance between left & right wheels 
-    d = EPUCK_AXLE_DIAMETER
-    
-    #v = r*w, so solve for r  
-    r = EPUCK_MAX_WHEEL_SPEED / MAX_SPEED
-    
-    #calculate left and right angular velocities 
-    phi_dot_L = (x_dot_R - (theta_dot * d / 2)) / r
-    phi_dot_R = (x_dot_R + (theta_dot * d / 2)) / r
-    
-    #make sure epuck motors aren't above max speed or below -max speed
-    vL = np.clip(phi_dot_L, -MAX_SPEED, MAX_SPEED)
-    vR = np.clip(phi_dot_R, -MAX_SPEED, MAX_SPEED)
-    
-    #if robot is within 2cm of waypoint, waypoint is reached 
-    if rho < 0.02
-       # check if this is last waypoint 
-       if index == len(waypoints) - 1:
-           # stop robot 
-           vL = 0
-           vR = 0
-       else: 
-           # go to next waypoint if not last waypoint 
-           index += 1
-
-
-    print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
+    #print("Current pose: [%5f, %5f, %5f]" % (pose_x, pose_y, pose_theta))
     leftMotor.setVelocity(vL)
     rightMotor.setVelocity(vR)
