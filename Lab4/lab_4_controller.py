@@ -1,6 +1,5 @@
 """lab_4_controller controller."""
 # CSCI 3302: Introduction to Robotics
-
 # You may need to import some classes of the controller module. Ex:
 import math
 import time
@@ -64,10 +63,13 @@ lidar.enablePointCloud()
 #   NUM_LIDAR_RAYS rays, evenly spaced with the middle ray at angle 0.
 #   Hint: use np.linspace(start, stop, num=NUM_LIDAR_RAYS)
 
-
 lidar_measurements = []
-lidar_ray_angles = np.linspace(-LIDAR_ANGLE_RANGE / 2,LIDAR_ANGLE_RANGE / 2,num=NUM_LIDAR_RAYS)
 
+LIDAR_REVERSED = True  # flip to True on the second test run
+
+lidar_ray_angles = np.linspace(-LIDAR_ANGLE_RANGE / 2, LIDAR_ANGLE_RANGE / 2, num=NUM_LIDAR_RAYS)
+if LIDAR_REVERSED:
+    lidar_ray_angles = lidar_ray_angles[::-1]
 #### End of Part 1 #####
 
 ########################
@@ -112,10 +114,6 @@ while robot.step(SIM_TIMESTEP) != -1:
     # Read Lidar
     lidar_sensor_readings = lidar.getRangeImage()
     #print(tuple(zip(lidar_sensor_readings, lidar_ray_angles)))
-
-    # if state == "line_follower":
-        # display.setColor(0xFF0000)
-        # display.drawPixel(pose_x, pose_y)
 
 
     # TODO Part 2: Transform the continuous map coordinates into the discrete locations on the display
