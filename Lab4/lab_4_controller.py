@@ -137,7 +137,7 @@ while robot.step(SIM_TIMESTEP) != -1:
     #         and its x-axis increases to the right, and its y-axis increases downward.
     #       - In the robot frame, forward motion aligns with the +x-axis, and left corresponds to the +y-axis.
     #       - Please also refer to the instructions document to see how the robot's pose is defined in the map coordinate system.
-    lidar_measurements = []
+    hits = []
     robot_px, robot_py = world_to_pixel(pose_x, pose_y)
     
     for i in range(NUM_LIDAR_RAYS):
@@ -154,8 +154,11 @@ while robot.step(SIM_TIMESTEP) != -1:
             mx = pose_x + rx * math.cos(pose_theta) - ry * math.sin(pose_theta)
             my = pose_y - rx * math.sin(pose_theta) - ry * math.cos(pose_theta)
             
-            px, py = world_to_pixel(mx, my)
-            lidar_measurements.append((px, py))
+            # px, py = world_to_pixel(mx, my)
+            # hits.append((px, py))
+            
+            if 0.0 <= mx < 1.0 and 0.0 <= my < 1.0:
+                hits.append(world_to_pixel(mx, my))
 
 
     # TODO Part 4: Draw the obstacle, the robot's path, and free spaces on the map
@@ -163,35 +166,30 @@ while robot.step(SIM_TIMESTEP) != -1:
     # Draw the current robot’s visited pixel in red.
     # Draw a white line between the occupied pixel and the robot’s current visited pixel.
     # Please also refer to the instruction document for more details.
-    # Obstacles
+
+    # White
     display.setColor(0xFFFFFF)
-    for hx, hy in lidar_measurements:
+    for hx, hy in hits:
         display.drawLine(robot_px, robot_py, hx, hy)
 
-    # obstacles: blue pixel at each hit
-    display.setColor(0x0000FF)
-    for hx, hy in lidar_measurements:
-        display.drawPixel(hx, hy)
-        occupied_pixels.add((hx, hy))
-
-    # robot path: red, on top
+    occupied_pixels.update(hits)
     visited_pixels.add((robot_px, robot_py))
-    display.setColor(0xFF0000)
-    display.drawPixel(robot_px, robot_py)
-    
+
+    # Blue
     display.setColor(0x0000FF)
     for x, y in occupied_pixels:
         display.drawPixel(x, y)
 
+    # Red
+    display.setColor(0xFF0000)
+    for x, y in visited_pixels:
+        display.drawPixel(x, y)
     # Except for Part 0A (as noted in the instructions) and the "TODO Part 4", PLEASE DO NOT MODIFY ANY CODE BELOW THIS LINE
     #####################################################
     #                 Robot controller                  #
     #####################################################
 
     if state == "line_follower":
-        point_visisted(display, pose_x, pose_y)
-        # print(pose_x, pose_y)
-    
         if (gsr[1] < 350 and gsr[0] > 400 and gsr[2] > 400):
             vL = MAX_SPEED*0.3
             vR = MAX_SPEED*0.3
@@ -200,37 +198,43 @@ while robot.step(SIM_TIMESTEP) != -1:
             cnt += 1
             vL = MAX_SPEED*0.3
             vR = MAX_SPEED*0.3
-            if cnt > 10 and not saved:
-                saved = True
+            if cnt > 10:
                 cnt = 0
                 # Feel free to comment this to make your terminal cleaner
                 print("Over the line!")
                 # TODO Part 4: Save the map clearly showing the robot's path and the obstacles.
                 # Before saving the map,
                 # 1. draw ALL the robot's visited pixels again
-                point_visisted(display, pose_x, pose_y)
                 # 2. draw ALL the occupied pixels in blue again
-                print(round(gsr[0]), round(gsr[1]), round(gsr[2]), vL, vR)
+                
+                display.setColor(0xFFFFFF)
+                for hx, hy in hits:
+                    display.drawLine(robot_px, robot_py, hx, hy)
+            
+                occupied_pixels.update(hits)
+                visited_pixels.add((robot_px, robot_py))
+            
+                # Blue
+                display.setColor(0x0000FF)
+                for x, y in occupied_pixels:
+                    display.drawPixel(x, y)
+            
+                # Red
+                display.setColor(0xFF0000)
+                for x, y in visited_pixels:
+                    display.drawPixel(x, y)
 
                 display.imageSave(None, "map.png")
 
         elif (gsr[2] < 650):  # turn right
             vL = 0.2*MAX_SPEED
             vR = -0.05*MAX_SPEED
-            last_turn = 1
             cnt = 0
-            saved = False
         elif (gsr[0] < 650):  # turn left
             vL = -0.05*MAX_SPEED
             vR = 0.2*MAX_SPEED
-            last_turn = -1
             cnt = 0
-            saved = False
-        else:
-            if last_turn == 1:
-                vL, vR = 0.2*MAX_SPEED, -0.05*MAX_SPEED
-            else:
-                vL, vR = -0.05*MAX_SPEED, 0.2*MAX_SPEED
+
     else:
         # Stationary State
         vL = 0
