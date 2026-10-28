@@ -96,7 +96,7 @@ mode = 'manual' # Part 1.1: manual mode
 # Part 1.2: Map Initialization
 #Find Wall Follow Wall
 state = "FIND_WALL" 
-wall_direction = "FRONT"
+wall_direction = "RIGHT"
 
 # Initialize your map data structure here as a 2D floating point array
 map = np.zeros(shape=[360,360])
@@ -234,14 +234,46 @@ while robot.step(timestep) != -1 and mode != 'planner':
             else:
                 right.append(rho)
             
-            front_distance = ...
-            left_distance = ...
-            right_distance = ...
+            front_distance = min(front)
+            left_distance = min(left)
+            right_distance = min(right)
             
             closest_distance = min(front_distance,left_distance,right_distance)
-            
-            
-            state = "FOLLOW_WALL"
+
+
+            if closest_distance == front_distance:
+                    if front_distance > wall_distance_thresh:
+                        vL = 0.5 * MAX_SPEED
+                        vR = 0.5 * MAX_SPEED
+                    else:
+                        vL = 0.5 * MAX_SPEED
+                        vR = -0.5 * MAX_SPEED
+                        wall_direction = "LEFT"
+                        state = "FOLLOW_WALL"
+
+            elif closest_distance == left_distance:
+                wall_direction = "LEFT"
+                if left_distance <= wall_detect_thresh:
+                    vL = 0
+                    vR = 0
+                    state = "FOLLOW_WALL"
+                else:
+                    vL = -0.5 * MAX_SPEED
+                    vR = 0.5 * MAX_SPEED
+
+            else:
+                wall_direction = "RIGHT"
+
+                if right_distance <= wall_detect_thresh:
+                    vL = 0
+                    vR = 0
+                    state = "FOLLOW_WALL"
+                else:
+                    vL = 0.5 * MAX_SPEED
+                    vR = -0.5 * MAX_SPEED
+
+
+
         elif state == "FOLLOW_WALL":
             start_posistion = (pose_x,pose_y)
             #some sort of timer 
