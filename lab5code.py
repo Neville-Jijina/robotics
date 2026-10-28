@@ -15,6 +15,12 @@ LIDAR_ANGLE_BINS = 667
 LIDAR_SENSOR_MAX_RANGE = 2.75 # Meters
 LIDAR_ANGLE_RANGE = math.radians(240)
 
+#constants for spin
+spin_every = 250 #loop steps between scans since 250*32 ms = 8 sec ish 
+still_steps = 15 # steps that robot is still for before spinning 
+spin_steps = 210 
+spin_speed = 0.3*MAX_SPEED
+counter = 0
 
 ##### vvv [Begin] Do Not Modify vvv #####
 
@@ -82,7 +88,7 @@ lidar_offsets = lidar_offsets[83:len(lidar_offsets)-83] # Only keep lidar readin
 ##################### IMPORTANT #####################
 # Set the mode here. Please change to 'autonomous' before submission
 mode = 'manual' # Part 1.1: manual mode
-# mode = 'autonomous'
+#mode = 'autonomous'
 
 ######################
 #
@@ -91,6 +97,9 @@ mode = 'manual' # Part 1.1: manual mode
 ######################
 
 # Part 1.2: Map Initialization
+#Find Wall Follow Wall
+state = "FIND_WALL" 
+wall_direction = "FRONT"
 
 # Initialize your map data structure here as a 2D floating point array
 map = np.zeros(shape=[360,360])
@@ -205,7 +214,41 @@ while robot.step(timestep) != -1 and mode != 'planner':
             vR = 0 * MAX_SPEED
 
     elif mode == 'autonomous':
-        pass 
+        if state == "FIND_WALL":
+            start_posistion = (pose_x,pose_y)
+            #right wall threshold
+            #front wall threshold
+            #left wall threshold
+            state = "FOLLOW_WALL"
+        elif state == "FOLLOW_WALL":
+            
+            counter += 1
+            if counter >= spin_every:
+                #some sort of timer 
+                #Implement wall follow state
+                counter = 0
+                state = "SPIN"
+            
+        elif state == "SPIN":
+            counter += 1
+            
+            if counter <= still_steps:
+            #stand still for a lil first
+                vL = 0
+                vR = 0
+            elif counter <= still_steps + spin_steps:
+                #rotate in place
+                vL = -spin_speed
+                vR = spin_spind
+            else:
+                #go back to wall following 
+                vL= 0 
+                vR=0
+                counter = 0
+                state = "FOLLOW_WALL"
+            
+            
+            
         #Autonomously explore the entire environment, generate a map, and store the map as an npy file
         # Odometry code. Don't change vL or vR speeds after this line.
         # We are using GPS and compass for this lab to get a better pose but this is how you'll do the odometry
