@@ -72,6 +72,9 @@ pose_theta = 0
 vL = 0
 vR = 0
 
+wall_distance_thresh = 0.5
+wall_detect_thresh = .8
+
 lidar_sensor_readings = [] # List to hold sensor readings
 lidar_offsets = np.linspace(-LIDAR_ANGLE_RANGE/2., +LIDAR_ANGLE_RANGE/2., LIDAR_ANGLE_BINS)
 lidar_offsets = lidar_offsets[83:len(lidar_offsets)-83] # Only keep lidar readings not blocked by robot chassis
@@ -212,6 +215,32 @@ while robot.step(timestep) != -1 and mode != 'planner':
             #right wall threshold
             #front wall threshold
             #left wall threshold
+            front = []
+            left = []
+            right = []
+    
+            for i, rho in enumerate(lidar_sensor_readings):
+                alpha = lidar_offsets[i]
+            
+            if rho > LIDAR_SENSOR_MAX_RANGE:
+                continue
+                
+            if alpha <= math.pi / 6:
+                front.append(rho)
+            
+            elif alpha < -math.pi / 6:
+               left.append(rho)
+            
+            else:
+                right.append(rho)
+            
+            front_distance = ...
+            left_distance = ...
+            right_distance = ...
+            
+            closest_distance = min(front_distance,left_distance,right_distance)
+            
+            
             state = "FOLLOW_WALL"
         elif state == "FOLLOW_WALL":
             start_posistion = (pose_x,pose_y)
