@@ -46,7 +46,7 @@
                             vR = 0
                             state = "FOLLOW_WALL"
                         else:
-                            vL = -0.5 * MAX_SPEED
+                            vL = -0.25 * MAX_SPEED
                             vR = 0.5 * MAX_SPEED
 
                     else:
@@ -58,4 +58,4 @@
                             state = "FOLLOW_WALL"
                         else:
                             vL = 0.5 * MAX_SPEED
-                            vR = -0.5 * MAX_SPEED
+                            vR = -0.25 * MAX_SPEED
