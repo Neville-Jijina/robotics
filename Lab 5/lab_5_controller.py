@@ -18,6 +18,12 @@ LIDAR_ANGLE_RANGE = math.radians(240)
 wall_distance_thresh = 0.5
 wall_detect_thresh = 1.0
 
+SPEED_SCALE = 0.5
+TARGET = 0.35
+KP = 0.6
+in_corner = False
+corner_ticks = 0
+
 
 #constants for spin
 spin_every = 250 #loop steps between scans since 250*32 ms = 8 sec ish 
@@ -224,68 +230,93 @@ while robot.step(timestep) != -1 and mode != 'planner':
     elif mode == 'autonomous':
         if state == "FIND_WALL":
             print("Finding Wall")
-            #right wall threshold
-            #front wall threshold
-            #left wall threshold
             front = []
+            front_right = []   # NEW
             left = []
             right = []
-            
-    
+
             for i, rho in enumerate(lidar_sensor_readings):
                 alpha = lidar_offsets[i]
 
-                if rho > LIDAR_SENSOR_MAX_RANGE:
-                    continue
-                    
-                if abs(alpha) <= math.pi / 6:
+                if abs(alpha) <= math.radians(15):
                     front.append(rho)
-                
-                elif alpha < -math.pi / 6:
+
+                # NEW: 20 to 60 degrees right of forward
+                elif abs(alpha - math.radians(40)) <= math.radians(20):
+                    front_right.append(rho)
+
+                elif abs(alpha + math.pi/2) <= math.radians(25):
                     left.append(rho)
-                
-                else:
+
+                elif abs(alpha - math.pi/2) <= math.radians(25):
                     right.append(rho)
-            
-            front_distance = min(front) 
-            left_distance = min(left)
-            right_distance = min(right)
+
+            # If lidars go past max it can cause issues so replace it with the max value instead
+            front_distance = min(front) if front else LIDAR_SENSOR_MAX_RANGE
+            front_right_distance = min(front_right) if front_right else LIDAR_SENSOR_MAX_RANGE  # NEW
+            left_distance = min(left) if left else LIDAR_SENSOR_MAX_RANGE
+            right_distance = min(right) if right else LIDAR_SENSOR_MAX_RANGE
             
             closest_distance = min(front_distance,left_distance,right_distance)
 
-            if closest_distance == front_distance:
-                if front_distance > wall_distance_thresh:
-                    vL = 0.5 * MAX_SPEED
-                    vR = 0.5 * MAX_SPEED
-                else:
-                    vL = 0
-                    vR = 0
-                    wall_direction = "LEFT"
-                    print("follow wall")
-                    state = "FOLLOW_WALL"
+            # CHANGED: a real hallway only, so hugging the right wall in a room doesn't count as "narrow"
+            narrow = (left_distance + right_distance) < 1.2
 
-            elif closest_distance == left_distance:
-                wall_direction = "LEFT"
+            # 1. Obstacle ahead
+            if front_distance < (0.6 if narrow else 0.9):
+                print("blocked ahead, turning left")
+                vL = -0.2 * MAX_SPEED
+                vR = 0.5 * MAX_SPEED
 
-                if left_distance <= wall_detect_thresh:
-                    vL = 0
-                    vR = 0
-                    state = "FOLLOW_WALL"
-                else:
-                    vL = -0.25 * MAX_SPEED
-                    vR = 0.3 * MAX_SPEED
+            # 2. Emergency wall avoidance (CHANGED: lowered so it doesn't fire at TARGET)
+            elif right_distance < (0.15 if narrow else 0.2):
+                print("CRITICAL: right wall too close, spinning away")
+                vL = -0.3 * MAX_SPEED
+                vR = 0.5 * MAX_SPEED
 
+            elif narrow and left_distance < 0.15:
+                print("CRITICAL: left wall too close, steering right")
+                vL = 0.5 * MAX_SPEED
+                vR = -0.3 * MAX_SPEED
+
+            # 2b. Shelf / door frame sticking out ahead on the right
+            elif right_distance < 0.8 and front_right_distance < 1.0 * right_distance:
+                print("protrusion ahead on right, steering left")
+                vL = 0.1 * MAX_SPEED
+                vR = 0.4 * MAX_SPEED
+
+            # Narrow space, stay centered
+            elif narrow:
+                print("narrow space, centering")
+                error = right_distance - left_distance
+                steer = max(-0.15, min(0.15, 0.5 * error))
+                vL = (0.3 + steer) * MAX_SPEED
+                vR = (0.3 - steer) * MAX_SPEED
+
+            # 4. Outside corner (CHANGED: 0.9 -> 1.2 so normal drift can't trigger a spin)
+            elif right_distance > 1.2:
+                print("outside corner, arcing right")
+                vL = 0.5 * MAX_SPEED
+                vR = -0.5 * MAX_SPEED
+
+            # 3. Lost wall
+            elif front_distance > 0.8 and right_distance > 0.8 and left_distance > 0.9:
+                print("lost wall, curving right to find it")
+                vL = 0.4 * MAX_SPEED
+                vR = 0.1 * MAX_SPEED
+
+            # 5+6. CHANGED: one proportional rule replaces "too close" and "straight"
             else:
-                wall_direction = "RIGHT"
+                error = right_distance - TARGET        # positive = too far from the wall
+                if abs(error) < 0.04:
+                    error = 0.0                        # small deadband so it stops twitching
+                steer = max(-0.15, min(0.15, KP * error))
+                print("following wall, error:", round(error, 2))
+                vL = (0.3 + steer) * MAX_SPEED         # positive steer turns right, toward the wall
+                vR = (0.3 - steer) * MAX_SPEED
 
-                if right_distance <= wall_detect_thresh:
-                    vL = 0
-                    vR = 0
-                    print("follow wall")
-                    state = "FOLLOW_WALL"
-                else:
-                    vL = 0.3 * MAX_SPEED
-                    vR = -0.25 * MAX_SPEED
+            vL *= SPEED_SCALE
+            vR *= SPEED_SCALE
             
         # elif state == "TURN_RIGHT":
         #     print("Turning Right")
@@ -310,71 +341,107 @@ while robot.step(timestep) != -1 and mode != 'planner':
             # state = "FOLLOW_WALL"
         elif state == "FOLLOW_WALL":
             front = []
+            front_right = []
             left = []
             right = []
 
-
             for i, rho in enumerate(lidar_sensor_readings):
                 alpha = lidar_offsets[i]
-                    
+
                 if abs(alpha) <= math.radians(15):
                     front.append(rho)
-                
+
+                elif abs(alpha - math.radians(40)) <= math.radians(20):
+                    front_right.append(rho)
+
                 elif abs(alpha + math.pi/2) <= math.radians(25):
                     left.append(rho)
-                
+
                 elif abs(alpha - math.pi/2) <= math.radians(25):
                     right.append(rho)
 
-            # If lidars go past max it can cause issues so replace it with the max value instead
             front_distance = min(front) if front else LIDAR_SENSOR_MAX_RANGE
+            front_right_distance = min(front_right) if front_right else LIDAR_SENSOR_MAX_RANGE
             left_distance = min(left) if left else LIDAR_SENSOR_MAX_RANGE
             right_distance = min(right) if right else LIDAR_SENSOR_MAX_RANGE
-            
-            closest_distance = min(front_distance,left_distance,right_distance)
+
+            narrow = (left_distance + right_distance) < 1.2
 
             print("Front Distance: ", front_distance)
+            print("Front-Right Distance: ", front_right_distance)
             print("Right Distance: ", right_distance)
             print("Left Distance: ", left_distance)
 
-           # 1. Inside corner or obstacle ahead: Turn left aggressively
-            if front_distance < 0.9:
+            # corner state: starts when the right wall ends, ends when a wall is found again
+            if not in_corner and right_distance > 1.2:
+                in_corner = True
+                corner_ticks = 0
+            elif in_corner:
+                corner_ticks += 1
+                if right_distance < 0.5 or narrow:
+                    in_corner = False
+
+            # 0. Mid-corner: arc right (driving forward) until the new wall shows up
+            if in_corner:
+                if front_distance < 0.45:
+                    print("corner: something close ahead, turning left")
+                    vL = -0.2 * MAX_SPEED
+                    vR = 0.5 * MAX_SPEED
+                else:
+                    print("corner: arcing right, ticks:", corner_ticks)
+                    vL = 0.5 * MAX_SPEED
+                    vR = 0.2 * MAX_SPEED
+
+            # 1. Obstacle ahead
+            elif front_distance < (0.6 if narrow else 0.9):
                 print("blocked ahead, turning left")
                 vL = -0.2 * MAX_SPEED
                 vR = 0.5 * MAX_SPEED
 
-            # 2. Emergency Wall Avoidance: Dangerously close (< 0.4 instead of 0.3)
-            elif right_distance < 0.4:
-                print("CRITICAL: Wall too close, spinning away")
-                # Strong pivot away from the wall
+            # 2. Emergency wall avoidance
+            elif right_distance < (0.15 if narrow else 0.2):
+                print("CRITICAL: right wall too close, spinning away")
                 vL = -0.3 * MAX_SPEED
                 vR = 0.5 * MAX_SPEED
 
-            # 3. Complete wall loss (open space): Gentle curve to search
+            elif narrow and left_distance < 0.15:
+                print("CRITICAL: left wall too close, steering right")
+                vL = 0.5 * MAX_SPEED
+                vR = -0.3 * MAX_SPEED
+
+            # 2b. Shelf / door frame sticking out ahead on the right
+            elif right_distance < 0.8 and front_right_distance < 1.0 * right_distance:
+                print("protrusion ahead on right, steering left")
+                vL = 0.1 * MAX_SPEED
+                vR = 0.4 * MAX_SPEED
+
+            # Narrow space, stay centered
+            elif narrow:
+                print("narrow space, centering")
+                error = right_distance - left_distance
+                steer = max(-0.15, min(0.15, 0.5 * error))
+                vL = (0.3 + steer) * MAX_SPEED
+                vR = (0.3 - steer) * MAX_SPEED
+
+            # 3. Wall drifting away (0.8 to 1.2): gentle curve to find it
             elif front_distance > 0.8 and right_distance > 0.8 and left_distance > 0.9:
                 print("lost wall, curving right to find it")
                 vL = 0.4 * MAX_SPEED
                 vR = 0.1 * MAX_SPEED
 
-            # 4. Outside corner (90-degree turn): Arc right
-            # Dropped this from 1.0 to 0.9 so it starts the turn before getting too far past the wall
-            elif right_distance > 0.9:
-                print("outside corner, arcing right")
-                vL = 0.5 * MAX_SPEED  
-                vR = 0.2 * MAX_SPEED 
-
-            # 5. Too close to the wall: Steer left (Triggering SOONER at 0.6)
-            elif right_distance < 0.6:
-                print("too close to right wall, steering left")
-                # Sped up the right wheel to actively drive the robot away from the wall
-                vL = 0.1 * MAX_SPEED
-                vR = 0.4 * MAX_SPEED
-
-            # 6. Perfect distance (0.6 to 0.9): Drive straight
+            # 4. Normal wall following: proportional steering
             else:
-                print("going straight")
-                vL = 0.3 * MAX_SPEED
-                vR = 0.3 * MAX_SPEED
+                error = right_distance - TARGET
+                if abs(error) < 0.04:
+                    error = 0.0
+                steer = max(-0.15, min(0.15, KP * error))
+                print("following wall, error:", round(error, 2))
+                vL = (0.3 + steer) * MAX_SPEED
+                vR = (0.3 - steer) * MAX_SPEED
+
+            vL *= SPEED_SCALE
+            vR *= SPEED_SCALE
+
             # else:
             #     print("error correction")
             #     error = right_distance - 0.4
