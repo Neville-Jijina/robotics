@@ -18,6 +18,12 @@ LIDAR_ANGLE_RANGE = math.radians(240)
 wall_distance_thresh = 0.5
 wall_detect_thresh = 1.0
 in_corner = False
+at_corner = False
+backing_up = False
+backup_counter = 0
+turn_start = 0
+turning_right = False
+
 
 SPEED_SCALE = 0.5
 TARGET = 0.35
@@ -30,7 +36,7 @@ corner_start_theta = 0.0
 #constants for spin
 spin_every = 700 #loop steps between scans since 250*32 ms = 8 sec ish 
 still_steps = 15 # steps that robot is still for before spinning 
-spin_steps = 225 
+spin_steps = 220 
 spin_speed = 0.3*MAX_SPEED
 counter = 0
 
@@ -328,95 +334,76 @@ while robot.step(timestep) != -1 and mode != 'planner':
 
             if in_corner:
                 turn_counter += 1
-                print("90 degree turn")
+                print("90 degree turn in corner")
                 vL = -0.2 * MAX_SPEED
                 vR = 0.2 * MAX_SPEED
+
                 if turn_counter == 24:
                     turn_counter = 0
                     in_corner = False
 
-            if front_distance < 0.3:
-                vL = -0.2 * MAX_SPEED
-                vR = 0.2 * MAX_SPEED
+            if at_corner:
+                turn_counter += 1
+                print("90 degree turn at corner")
+                vL = 0.2 * MAX_SPEED
+                vR = -0.2 * MAX_SPEED
 
-            if front_distance < 0.7 and front_right_distance < 0.7 and right_distance < 0.7:
+                if turn_counter == 24:
+                    turn_counter = 0
+                    at_corner = False
+
+            elif left_distance < 0.2:
+                vL = 0.2 * MAX_SPEED
+                vR = -0.2 * MAX_SPEED
+
+            elif backing_up or front_distance < 0.45 or front_right_distance < 0.45:
+                print("too close, backing up")
+                backing_up = True
+                backup_counter += 1
+                vL = -0.2 * MAX_SPEED
+                vR = -0.1 * MAX_SPEED
+
+                if backup_counter == 14:
+                    backup_counter = 0
+                    backing_up = False
+                    in_corner = True
+
+            elif front_distance < 0.8 and front_right_distance < 0.8 and right_distance < 0.8:
                 print("In corner")
                 in_corner = True
-            elif front_distance < 0.6:
-                print("turn left")
                 vL = -0.2 * MAX_SPEED
                 vR = 0.2 * MAX_SPEED
-                
-            elif right_distance > 0.6:
-                print("curve right")
+
+            elif front_right_distance > 2.0 and 2.5 < right_distance > 2.0:
                 vL = 0.3 * MAX_SPEED
-                vR = 0.1 * MAX_SPEED
-
-            elif right_distance < 0.6:
-                print("curve left")
-                vL = -0.1 * MAX_SPEED
                 vR = 0.3 * MAX_SPEED
+                # turn_counter += 1
+                # if turn_counter == 24:
+                #     turn_counter = 0
 
-            # if not in_corner and right_distance > 1.2:
-            #     in_corner = True
-            #     corner_ticks = 0
-            #     corner_start_theta = pose_theta
-            #     print(">>> corner started")
-            # elif in_corner:
-            #     corner_ticks += 1
-            #     d = pose_theta - corner_start_theta
-            #     turned = abs(math.atan2(math.sin(d), math.cos(d)))
-            #     print("corner: turned", round(math.degrees(turned)), "deg")
-            #     if turned > math.radians(80) or corner_ticks > 600:
-            #         in_corner = False
-            #         print("<<< corner finished")
+            # elif right_distance > 2.0 and front_right_distance > 2.0:
+            #     vL = 0.2 * MAX_SPEED
+            #     vR = 0.2 * MAX_SPEED
 
-            # if in_corner:
-            #     if front_distance < 0.45:
-            #         vL = 0.2 * MAX_SPEED
-            #         vR = -0.2 * MAX_SPEED
-            #     elif right_distance < 0.25:
-            #         print("too close to wall")
-            #         vL = 0.25 * MAX_SPEED
-            #         vR = 0.25 * MAX_SPEED
-            #     else:
-            #         vL = 0.3 * MAX_SPEED
-            #         vR = 0.1 * MAX_SPEED
-
-            # elif front_distance < 0.6:
-            #     print("blocked ahead, turning left")
-            #     vL = -0.2 * MAX_SPEED
-            #     vR = 0.5 * MAX_SPEED
-
-            # elif right_distance < 0.2:
-            #     print("right wall too close")
-            #     vL = -0.3 * MAX_SPEED
-            #     vR = 0.5 * MAX_SPEED
-
-            # elif left_distance < 0.2:
-            #     print("left wall too close")
-            #     vL = 0.5 * MAX_SPEED
-            #     vR = -0.3 * MAX_SPEED
+            elif right_distance > 1.0:
+                print("lost right corner")
+                at_corner = True
 
             
-            # elif right_distance < 0.8 and front_right_distance < 0.8 * right_distance:
-            #     vL = 0.1 * MAX_SPEED
-            #     vR = 0.4 * MAX_SPEED
 
-            # elif front_distance > 0.8 and right_distance > 0.8:
-            #     vL = 0.4 * MAX_SPEED
-            #     vR = 0.1 * MAX_SPEED
+            elif right_distance > 0.6:
+                print("lost wall, curve right")
+                vL = 0.3 * MAX_SPEED
+                vR = 0.1 * MAX_SPEED
+            elif right_distance < 0.5:
+                print("too close, curve left")
+                vL = 0.1 * MAX_SPEED
+                vR = 0.2 * MAX_SPEED
 
-            # else:
-            #     error = right_distance - TARGET
-            #     if abs(error) < 0.04:
-            #         error = 0.0
-            #     steer = max(-0.15, min(0.15, KP * error))
-            #     vL = (0.3 + steer) * MAX_SPEED
-            #     vR = (0.3 - steer) * MAX_SPEED
-
-            # vL *= SPEED_SCALE
-            # vR *= SPEED_SCALE
+            else:
+                print("straight")
+                vL = 0.2 * MAX_SPEED
+                vR = 0.2 * MAX_SPEED
 
             counter += 1
             if counter >= spin_every and not in_corner:
