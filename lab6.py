@@ -1,3 +1,4 @@
+"""lab6_controller_1 controller."""
 import numpy as np
 import sys
 
@@ -6,6 +7,10 @@ try:
 except ImportError:
     print("ERROR: Must run inside Webots as Supervisor."); sys.exit(1)
 
+
+approach_height = 0.15
+grasp_height = 0.0
+place_height = 0.0
 
 # ============================================================
 # Robot Interface (DO NOT MODIFY)
@@ -114,14 +119,25 @@ def forward_kinematics(q):
     Returns:
         position : numpy array [x, y, z] in robot base frame
     """
-    T = np.eye(4) #initialize 4x4 transformation matrix
+    # Needs to take in 6 joint angles and return the position of the gripper tip in the robot base frame. 
+    T = np.eye(4)
 
     for i in range(6):
-        T = T @ _dh(UR5E_DH_A[i], UR5E_DH_D[i],UR5E_DH_ALPHA[i], q[i])
+        a = UR5E_DH_A[i]
+        b = UR5E_DH_D[i]
+        alpha = UR5E_DH_ALPHA[i]
+        theta = q[i]
+        T = T @ _dh(a, b, alpha, theta)
 
-    T[:3, 3] += GRIPPER_OFFSET * T[:3, 2] #account for gripper length
+    T_tool = np.eye(4)
+    T_tool[2, 3] = GRIPPER_OFFSET
+    T = T @ T_tool
 
-    return T[:3, 3] #return position
+    return T[0:3, 3]
+
+    # print("testing testing testsing")
+    # raise NotImplementedError("TODO: Implement forward_kinematics()")
+
 
 # ============================================================
 # TASK 2: Numerical Jacobian (15 pts)
@@ -137,22 +153,25 @@ def compute_jacobian(q, delta=1e-5):
     Returns:
         J : numpy array (3, 6)
     """
-    # TODO: Implement (~8-10 lines)
-    #raise NotImplementedError("TODO: Implement compute_jacobian()")
-    J = np.zeros((3, 6)) #initialize jacobian, matrix w 3 rows (XYZ position) and 6 columns (6 joints) 
 
-    for i in range(6): #loop thru the jonts 
-        #positive and negative perturbations
-        q_plus = np.array(q, dtype=float)
-        q_minus = np.array(q, dtype=float)
+    q = np.array(q, dtype=float)
+    J = np.zeros((3, 6))
 
+    for i in range(6):
+        q_plus = q.copy()
+        q_minus = q.copy()
         q_plus[i] += delta
         q_minus[i] -= delta
-        
-        #calculate jacobian column 
-        J[:, i] = (forward_kinematics(q_plus) - forward_kinematics(q_minus)) / (2 * delta)
+
+        f_plus = forward_kinematics(q_plus)
+        f_minus = forward_kinematics(q_minus)
+
+        J[:, i] = (f_plus - f_minus) / (2 * delta)
 
     return J
+
+    # TODO: Implement (~8-10 lines)
+    # raise NotImplementedError("TODO: Implement compute_jacobian()")
 
 
 # ============================================================
@@ -170,14 +189,31 @@ def get_waypoints(block_world, bin_world):
         dict with keys: 'above_block', 'at_block', 'above_bin'
         Each value is a list [x, y, z] in world frame.
     """
-    raise NotImplementedError("TODO: Implement get_waypoints()")
+    # raise NotImplementedError("TODO: Implement get_waypoints()")
 
+    # Above Block (0.3, -0.15, 0.84)
+    # Above Box (0.3, 0.2, 0.84)
+
+    block = np.array(block_world, dtype= float)
+    bin_pos = np.array(bin_world, dtype= float)
+
+    up = np.array([0.0, 0.0, 1.0])
+
+    waypoints = {
+        "pre_grasp": block + approach_height * up,
+        "grasp": block + grasp_height * up,
+        "lift": block + approach_height * up,
+        "pre_place": bin_pos + approach_height * up,
+        "place": bin_pos + place_height * up,
+        "return": bin_pos + approach_height * up
+    }
+
+    return waypoints
 
 # ============================================================
 # TASK 4: Gradient Descent IK (20 pts)
 # ============================================================
-def gradient_descent_ik(target_world, q_init, learning_rate,
-                         max_iterations, tolerance):
+def gradient_descent_ik(target_world, q_init, learning_rate, max_iterations, tolerance):
     """
     Find joint angles that place the gripper at target_world.
 
@@ -193,7 +229,29 @@ def gradient_descent_ik(target_world, q_init, learning_rate,
         converged  : bool
         errors     : list of position error at each iteration
     """
-    raise NotImplementedError("TODO: Implement gradient_descent_ik()")
+    # raise NotImplementedError("TODO: Implement gradient_descent_ik()")
+
+    target_base = np.array(world_to_base(target_world), dtype=float)
+
+    q = np.array(q_init, dtype=float)
+
+    for i in range(max_iterations):
+        current = forward_kinematics(q)
+        error = target_base - current
+
+        if np.linalg.norm(error) < tolerance:
+            return q
+
+        J = compute_jacobian(q)
+
+        q = q + learning_rate * (J.T @ error)
+
+        q = np.clip(q, -2 * np.pi, 2 * np.pi)
+
+    print("IK error: ", np.linalg.norm(error))
+    return q
+
+
 
 
 # ============================================================
@@ -205,15 +263,73 @@ def pick_and_place(arm, block_world, bin_world):
 
     """
     # TODO: Implement 
-    raise NotImplementedError("TODO: Implement pick_and_place()")
+    # raise NotImplementedError("TODO: Implement pick_and_place()")
+
+    wp = get_waypoints(block_world, bin_world)
+    print("waypoint keys:", list(wp.keys()))
+
+    arm.open_gripper()
+    arm.move_to(HOME)
+    q = np.array(HOME, dtype= float)
+
+    plan =[
+        ("pre_grasp", 'open'),
+        ("grasp", 'close'),
+        ("lift", None),
+        ("pre_place", None),
+        ("place", 'open'),
+        ("return", None),
+    ]
+
+    for name, gripper_action in plan:
+        q = gradient_descent_ik(wp[name], q, learning_rate= 0.5, max_iterations= 5000, tolerance= 1e-3)
+        reached = base_to_world(forward_kinematics(q))
+        err = np.linalg.norm(reached - wp[name])
+        print(name, "error:", err)
+        
+
+        arm.move_to(q, wait_time=1.0)
+
+        if gripper_action == 'open':
+            arm.open_gripper()
+            arm.wait(1.5)
+        elif gripper_action == 'close':
+            arm.close_gripper()
+            arm.wait(1.5)
+
+    arm.move_to(HOME)
+
+
 
 
 # ============================================================
 # MAIN — DO NOT MODIFY
 # ============================================================
 def main():
-    raise NotImplementedError("TODO: Implement main() to run the pick-and-place demo.")
+    # raise NotImplementedError("TODO: Implement main() to run the pick-and-place demo.")
+    # forward_kinematics([0, 0, 0, 0, 0, 0])
+    # np.set_printoptions(precision=4, suppress=True)
+    # print(compute_jacobian([0, 0, 0, 0, 0, 0]))
+    global ROBOT_POS
 
+    robot = Supervisor()
+    arm = UR5eInterface(robot)
+
+        # TEMP: list everything in the world so we can find the DEF names
+    root_children = robot.getRoot().getField("children")
+    for i in range(root_children.getCount()):
+        node = root_children.getMFNode(i)
+        print("DEF:", repr(node.getDef()), " type:", node.getTypeName())
+
+    robot_node = robot.getSelf()
+    block_node = robot.getFromDef("BLOCK")
+    bin_node = robot.getFromDef("BIN")
+
+    ROBOT_POS = np.array(robot_node.getPosition())
+    block_world = np.array(block_node.getPosition())
+    bin_world = np.array(bin_node.getPosition())
+
+    pick_and_place(arm, block_world, bin_world)
 
 if __name__ == "__main__":
     main()
