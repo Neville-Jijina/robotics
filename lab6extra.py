@@ -339,6 +339,16 @@ def block_stack(arm, robot):
         wp = get_waypoints(block_position, target)
         wp["place"][2] += 0.03
         
+        #to get red block to drop correctly
+        if block_names[i] == "RED_BLOCK":
+            wp["grasp"][2] += 0.02
+            wp["place"][2] += 0.04
+        
+        # #added because robot arm knocked over the tower after 3 blocks 
+        # #now, will move up before grabbing next block 
+        # wp["clearance"] = target.copy()
+        # wp["clearance"][2] += 0.25
+        
         print("Stacking:", block_names[i])
         print("Target Z:", target[2])
         print("Place Z:", wp["place"][2])
@@ -375,6 +385,19 @@ def block_stack(arm, robot):
             elif gripper_action == "close":
                 arm.close_gripper()
                 arm.wait(1.5)
+        #added bc the arm knocks over the tower when reaching for red 
+        if i < len(blocks) - 1:
+            safe_target = wp["return"].copy()
+            safe_target[2] += 0.15
+
+            q = gradient_descent_ik(
+                safe_target, q,
+                learning_rate=0.5,
+                max_iterations=5000,
+                tolerance=1e-3
+            )
+
+            arm.move_to(q, wait_time=1.0)
 
     arm.move_to(HOME)
 
